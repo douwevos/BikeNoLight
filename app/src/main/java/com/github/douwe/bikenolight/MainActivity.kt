@@ -1,10 +1,16 @@
 package com.github.douwe.bikenolight
 
 import android.Manifest
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.location.Location
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.IBinder
+import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
@@ -22,6 +28,23 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     lateinit var text : EditText
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
+    private lateinit var mService: LocationSampleService
+    private var mBound: Boolean = false
+
+    private val mConnection = object : ServiceConnection {
+
+        override fun onServiceConnected(className: ComponentName, service: IBinder) {
+            // We've bound to LocalService, cast the IBinder and get LocalService instance
+            val binder = service as LocationSampleService.LocationSampleBinder
+            mService = binder.service
+            mBound = true
+        }
+
+        override fun onServiceDisconnected(arg0: ComponentName) {
+            mBound = false
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(applicationContext)
@@ -30,6 +53,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         button = findViewById<Button>(R.id.button);
         button.setOnClickListener(this);
         text = findViewById<EditText>(R.id.editTextGps)
+        Log.i("TAG", "onCreate: #############################")
+        val intent: Intent = Intent(this, LocationSampleService::class.java)
+        bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
     }
 
 
