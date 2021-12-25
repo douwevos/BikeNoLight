@@ -38,25 +38,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     lateinit var text : EditText
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var map : MapView;
-    var marker: Marker? = null
+    private var marker: Marker? = null
     private lateinit var thread : Thread
 
     private lateinit var mService: LocationSampleService
     private var mBound: Boolean = false
 
-    private val mConnection = object : ServiceConnection {
 
-        override fun onServiceConnected(className: ComponentName, service: IBinder) {
-            // We've bound to LocalService, cast the IBinder and get LocalService instance
-            val binder = service as LocationSampleService.LocationSampleBinder
-            mService = binder.service
-            mBound = true
-        }
-
-        override fun onServiceDisconnected(arg0: ComponentName) {
-            mBound = false
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,8 +63,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         map.setTileSource(TileSourceFactory.MAPNIK);
     }
 
-    private lateinit var mService: LocationSampleService
-    private var mBound: Boolean = false
 
     /** Defines callbacks for service binding, passed to bindService()  */
     private val connection = object : ServiceConnection {

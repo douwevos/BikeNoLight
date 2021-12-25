@@ -9,14 +9,21 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Binder
 import android.os.Bundle
+import android.os.Environment
 import android.os.IBinder
 import android.util.Log
+import java.io.File
+import java.io.FileOutputStream
+import java.io.PrintWriter
 
 class LocationSampleService : Service() {
 
     private val binder = LocalBinder()
 
     private val locationList = LocationList()
+    private val locationList2 = LocationList()
+
+    private var thread : Thread? = null;
 
     override fun onBind(intent: Intent): IBinder {
         return binder;
@@ -34,10 +41,35 @@ class LocationSampleService : Service() {
             Log.d("add as listener", ""+provider)
             locationManager.requestLocationUpdates(provider,100,0.01f, MylocationListener())
         }
+
+        var lthread = Thread {
+            val file = File(applicationContext.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "nobikedata.txt")
+
+            var fos = FileOutputStream(file)
+            var out = PrintWriter(fos)
+            while (true) {
+                try {
+                    Thread.sleep(2000L)
+                } catch (e: InterruptedException) {
+                    e.printStackTrace()
+                }
+                Log.d("write", ""+file.absolutePath)
+                var list = locationList.flush()
+                if (list.isNotEmpty()) {
+                    for(l in list) {
+                        out.println("lat="+l.latitude+", lon="+l.longitude);
+                    }
+                    out.flush();
+                }
+            }
+        }
+        lthread.start()
+        thread = lthread;
+
     }
 
     fun enlistLocations(): MutableList<LocationList.BikeLocation>? {
-        return locationList.flush();
+        return locationList2.flush();
     }
 
     inner class LocalBinder : Binder() {
@@ -54,6 +86,7 @@ class LocationSampleService : Service() {
             var s = LocationList.BikeLocation(location.latitude, location.longitude)
             Log.d("location", "onLocationChanged: "+s)
             locationList.add(s)
+            locationList2.add(s)
         }
 
         override fun onStatusChanged(p0: String?, p1: Int, p2: Bundle?) {}
