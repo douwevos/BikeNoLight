@@ -41,6 +41,23 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     var marker: Marker? = null
     private lateinit var thread : Thread
 
+    private lateinit var mService: LocationSampleService
+    private var mBound: Boolean = false
+
+    private val mConnection = object : ServiceConnection {
+
+        override fun onServiceConnected(className: ComponentName, service: IBinder) {
+            // We've bound to LocalService, cast the IBinder and get LocalService instance
+            val binder = service as LocationSampleService.LocationSampleBinder
+            mService = binder.service
+            mBound = true
+        }
+
+        override fun onServiceDisconnected(arg0: ComponentName) {
+            mBound = false
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(applicationContext)
@@ -49,7 +66,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         button = findViewById<Button>(R.id.button);
         button.setOnClickListener(this);
         text = findViewById<EditText>(R.id.editTextGps)
-
 
         val ctx = applicationContext
         Configuration.getInstance().load(ctx, PreferenceManager.getDefaultSharedPreferences(ctx))
