@@ -1,6 +1,8 @@
 package com.github.douwe.bikenolight
 
 import android.Manifest
+import android.app.Notification
+import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -28,32 +30,34 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.w3c.dom.Text
 
-class MainActivity : AppCompatActivity(), View.OnClickListener {
+const val TAG : String = "MainActivity"
+
+class MainActivity : AppCompatActivity() {
 
     private val REQUEST_PERMISSIONS_REQUEST_CODE = 1;
 
-    private var latitude: Double? = 0.0;
-    private var longitude: Double? = 0.0;
-    lateinit var button : Button
-    lateinit var text : EditText
-    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    lateinit var bikeToggle : BikeToggleButton
     private lateinit var map : MapView;
-    private var marker: Marker? = null
     private lateinit var thread : Thread
-
-    private lateinit var mService: LocationSampleService
-    private var mBound: Boolean = false
 
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(applicationContext)
 
         setContentView(R.layout.activity_main)
-        button = findViewById<Button>(R.id.button);
-        button.setOnClickListener(this);
-        text = findViewById<EditText>(R.id.editTextGps)
+        bikeToggle = findViewById<BikeToggleButton>(R.id.bikeToggle)
+
+        var s = BikeToggleButton.Listener() {
+            Log.d(TAG, "toggle-state=$it")
+            val intent = Intent(this, RouteService::class.java)
+            if (!it) {
+                intent.action = RouteService.ACTION_STOP;
+            }
+            startService(intent)
+        }
+        bikeToggle.setListener(s)
+
 
         val ctx = applicationContext
         Configuration.getInstance().load(ctx, PreferenceManager.getDefaultSharedPreferences(ctx))
@@ -64,28 +68,22 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     }
 
 
-    /** Defines callbacks for service binding, passed to bindService()  */
-    private val connection = object : ServiceConnection {
-
-        override fun onServiceConnected(className: ComponentName, service: IBinder) {
-            // We've bound to LocalService, cast the IBinder and get LocalService instance
-            val binder = service as LocationSampleService.LocalBinder
-            mService = binder.getService()
-            mBound = true
-        }
-
-        override fun onServiceDisconnected(arg0: ComponentName) {
-            mBound = false
-        }
-    }
+    private val routeServiceConnection = RouteService.RouteServiceConnection()
 
 
     override fun onStart() {
         super.onStart()
         Log.d("blah", "starting")
-        val intent = Intent(this, LocationSampleService::class.java).also { intent ->
-            bindService(intent, connection, Context.BIND_AUTO_CREATE)
+
+        val intentR = Intent(this, RouteService::class.java);
+        intentR.setAction("nul");
+        if (bindService(intentR, routeServiceConnection, Context.BIND_AUTO_CREATE)) {
+            Log.d(TAG, "route-service bound")
+        } else {
+            Log.e(TAG, "route-service NOT bound")
         }
+
+
 
         var r = Runnable {
             while (true) {
@@ -94,13 +92,69 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 } catch (e: InterruptedException) {
                     e.printStackTrace()
                 }
-                Log.d("MA", "wake up")
-                var lService = mService
-                if (lService == null) {
-                    Log.d("MA", "no service")
-                    continue;
+                val lRouteService = routeServiceConnection.routeService;
+                Log.d(TAG, "wake up: "+lRouteService)
+                if (lRouteService != null) {
+                    val enlistedLocations = lRouteService.enlistLocal();
+                    Log.d(TAG, "enlistedLocations: "+enlistedLocations)
+                    if (enlistedLocations.isNotEmpty()) {
+                        runOnUiThread {
+                            var lmap = map
+                            if (lmap != null) {
+                                var box : BoundingBox?;
+                                box = null;
+//                                val box = BoundingBox()
+
+                                lmap.overlays.clear()
+
+                                for (bikelocation in enlistedLocations) {
+                                    var lm = Marker(lmap)
+                                    GeoPoint(
+                                        bikelocation.latitude,
+                                        bikelocation.longitude
+                                    ).also { lm.position = it };
+                                    lm.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
+                                    lmap.overlays.add(lm);
+
+                                    if (box == null) {
+                                        box = BoundingBox()
+                                        box.latNorth = bikelocation.latitude - 0.001;
+                                        box.latSouth = bikelocation.latitude + 0.001;
+                                        box.lonEast = bikelocation.longitude + 0.001;
+                                        box.lonWest = bikelocation.longitude - 0.001;
+
+                                    } else {
+
+                                        val llat = bikelocation.latitude;
+                                        if (llat < box.latNorth) {
+                                            box.latNorth = llat;
+                                        }
+                                        if (llat > box.latSouth) {
+                                            box.latSouth = llat;
+                                        }
+
+                                        val llon = bikelocation.longitude;
+                                        if (llon < box.lonWest) {
+                                            box.lonWest = llon;
+                                        }
+                                        if (llon > box.lonEast) {
+                                            box.lonEast = llon;
+                                        }
+
+
+                                    }
+
+                                }
+
+                                if (box != null) {
+                                    lmap.zoomToBoundingBox(box, true);
+                                }
+
+                            }
+                        }
+                    }
                 }
-                val enlistedLocations = lService.enlistLocations() ?: continue
+/*                val enlistedLocations = lService.enlistLocations() ?: continue
                 Log.d("MA", "enlistedLocations="+enlistedLocations)
                 if (enlistedLocations.isNotEmpty()) {
                     val bikeLocation = enlistedLocations[0]
@@ -131,7 +185,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
                         }
                     }
-                }
+                } */
 
             }
         }
@@ -169,10 +223,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         }
     }
 
-    override fun onClick(v: View?) {
-        obtainLocalization()
-        text.setText("gps: lon="+longitude+", lat="+latitude);
-    }
 
     private fun obtainLocalization(){
         if (ActivityCompat.checkSelfPermission(
@@ -193,10 +243,5 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION ), 1)
             return
         }
-        fusedLocationClient.lastLocation
-            .addOnSuccessListener { location: Location? ->
-                latitude =  location?.latitude
-                longitude = location?.longitude
-            }
     }
 }

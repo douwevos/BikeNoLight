@@ -18,12 +18,18 @@ public class LocationList {
     }
 
     public static class BikeLocation {
+        long ts;
+        String provider;
         double latitude;
         double longitude;
+        float accuracy;
 
-        public BikeLocation(double latitude, double longitude) {
+        public BikeLocation(long ts, String provider, double latitude, double longitude, float accuracy) {
+            this.ts = ts;
+            this.provider = provider;
             this.latitude = latitude;
             this.longitude = longitude;
+            this.accuracy = accuracy;
         }
 
     }

@@ -14,20 +14,10 @@
         tools:layout_editor_absoluteX="1dp"
         tools:layout_editor_absoluteY="1dp">
 
-        <Button
-            android:id="@+id/button"
+        <com.github.douwe.bikenolight.BikeToggleButton
+            android:id="@+id/bikeToggle"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Button" />
-
-        <EditText
-            android:id="@+id/editTextGps"
-            android:layout_width="424dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="106dp"
-            android:ems="10"
-            android:inputType="textPersonName"
-            android:text="Name" />
+            android:layout_height="140dp"/>
 
         <org.osmdroid.views.MapView android:id="@+id/map"
             android:layout_width="fill_parent"
